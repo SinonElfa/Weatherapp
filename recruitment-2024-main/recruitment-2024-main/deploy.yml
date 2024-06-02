@@ -1,0 +1,19 @@
+- name: Deploy WeatherApp
+  hosts: all
+  become: true
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        update_cache: yes
+      become: true
+      become_user: root
+
+    - name: Copy WeatherApp files
+      copy:
+        src: /path/to/weatherapp
+        dest: /opt/weatherapp
+        remote_src: yes
+
+    - name: Build Docker containers
+      command: docker-compose -f /opt/weatherapp/docker-compose.yml up -d
