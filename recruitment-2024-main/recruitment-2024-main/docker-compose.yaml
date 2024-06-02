@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    command: npm start
+    environment:
+      - NODE_ENV=development
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./backend:/app
+    command: npm start
+    environment:
+      - NODE_ENV=development
+      - API_KEY=<72c70649b65d9f1ea7da0b2718247302>
