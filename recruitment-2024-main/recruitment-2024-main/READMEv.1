@@ -1,0 +1,224 @@
+# WeatherApp
+
+WeatherApp is a web application that shows the upcoming weather. This repository includes both the frontend and backend components of the application. The infrastructure has been configured to run seamlessly using Docker and Docker Compose, with deployment scripts provided for cloud hosting using Azure, and automation using Ansible and Terraform.
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [Docker Setup](#docker-setup)
+- [Cloud Hosting](#cloud-hosting)
+- [Ansible Setup](#ansible-setup)
+- [Terraform Setup](#terraform-setup)
+- [Future Improvements](#future-improvements)
+
+## Prerequisites
+
+- Docker and Docker Compose installed on your local machine.
+- Azure account for cloud hosting.
+- Ansible installed on your local machine.
+- Terraform installed on your local machine.
+
+## Getting Started
+
+To run the application locally, clone this repository and install the necessary dependencies:
+
+```bash
+git clone https://github.com/SinonElfa/weatherapp.git
+cd weatherapp
+npm install
+npm start
+
+Docker Setup
+Dockerfiles
+Dockerfiles have been added to both the frontend and backend directories to containerize the application components.
+
+Frontend Dockerfile:
+# frontend/Dockerfile
+
+FROM node:14
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
+
+Backend Dockerfile:
+# backend/Dockerfile
+
+FROM node:14
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 9000
+CMD ["npm", "start"]
+
+Docker Compose
+A docker-compose.yml file has been created to connect the frontend and backend containers.
+# docker-compose.yml
+
+version: '3'
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "9000:9000"
+    environment:
+      - API_KEY=your_openweathermap_api_key
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:9000
+
+To run the application using Docker Compose:
+docker-compose up --build
+
+Cloud Hosting
+Azure Setup
+Create a Virtual Machine on Azure:
+
+Log in to the Azure portal.
+Create a new virtual machine with Ubuntu as the OS.
+During setup, add your SSH public key for secure access.
+Configure VM for Docker and Docker Compose:
+
+SSH into your VM and install Docker and Docker Compose.
+Clone the repository and set up the application as described in the Docker section.
+Setup Reverse Proxy (optional):
+
+Use Nginx or another reverse proxy to forward traffic to your application containers.
+Ansible Setup
+Ansible playbooks have been provided to automate the setup of Docker and the deployment of the application.
+
+Ansible Playbook:
+# deploy.yml
+
+---
+- name: Deploy WeatherApp
+  hosts: all
+  become: true
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker-ce
+        update_cache: yes
+      become: true
+      become_user: root
+
+    - name: Install Docker Compose
+      get_url:
+        url: https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    - name: Copy WeatherApp files
+      copy:
+        src: /path/to/weatherapp
+        dest: /opt/weatherapp
+        remote_src: yes
+
+    - name: Build and run Docker containers
+      command: docker-compose -f /opt/weatherapp/docker-compose.yml up -d
+
+To run the Ansible playbook:
+ansible-playbook -i inventory deploy.yml
+Terraform Setup
+Terraform configuration files have been provided to automate the creation of the necessary infrastructure on Azure.
+
+main.tf:
+# main.tf
+
+provider "azurerm" {
+  features {}
+}
+
+resource "azurerm_resource_group" "example" {
+  name     = "weatherapp-rg"
+  location = "West Europe"
+}
+
+resource "azurerm_virtual_network" "example" {
+  name                = "weatherapp-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+}
+
+resource "azurerm_subnet" "example" {
+  name                 = "weatherapp-subnet"
+  resource_group_name  = azurerm_resource_group.example.name
+  virtual_network_name = azurerm_virtual_network.example.name
+  address_prefixes     = ["10.0.1.0/24"]
+}
+
+resource "azurerm_network_interface" "example" {
+  name                = "weatherapp-nic"
+  location            = azurerm_resource_group.example.location
+  resource_group_name = azurerm_resource_group.example.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.example.id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
+resource "azurerm_virtual_machine" "example" {
+  name                  = "weatherapp-vm"
+  location              = azurerm_resource_group.example.location
+  resource_group_name   = azurerm_resource_group.example.name
+  network_interface_ids = [azurerm_network_interface.example.id]
+  vm_size               = "Standard_B1s"
+
+  storage_os_disk {
+    name              = "myosdisk1"
+    caching           = "ReadWrite"
+    create_option     = "FromImage"
+    managed_disk_type = "Standard_LRS"
+  }
+
+  storage_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
+    version   = "latest"
+  }
+
+  os_profile {
+    computer_name  = "hostname"
+    admin_username = "adminuser"
+    admin_password = "P@ssw0rd1234!"
+  }
+
+  os_profile_linux_config {
+    disable_password_authentication = true
+    ssh_keys {
+      path     = "/home/adminuser/.ssh/authorized_keys"
+      key_data = file("~/.ssh/id_rsa.pub")
+    }
+  }
+}
+
+output "public_ip" {
+  value = azurerm_virtual_machine.example.public_ip_address
+}
+To apply the Terraform configuration:
+
+terraform init
+terraform apply
+Future Improvements
+Implement CI/CD pipeline for automated deployments.
+Add unit and integration tests for the application.
+Improve error handling and logging.
+Add monitoring and alerting for the deployed application.
+Conclusion
+This README provides a comprehensive guide for setting up and deploying the WeatherApp using Docker, Docker Compose, Ansible, 
+and Terraform. The steps outlined ensure that the application can be deployed consistently across different environments with minimal 
+manual intervention.
